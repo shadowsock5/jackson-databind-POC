@@ -49,8 +49,8 @@ public class UnsafeJacksonObjectDeserialization {
 ```
 
 从上面的四个例子可以总结出存在漏洞的jackson代码有这么几种情况：
-- 1、exampleOne开启了DefaultTyping，且被序列化的类里有一个Object类型，可以进行对象注入；
-- 2、exampleTwo开启了DefaultTyping，且接口类和抽象类都能被反序列化，更可以进行对象注入；
+- 1、exampleOne开启了DefaultTyping，且被序列化的类里有一个Object类型，默认空的构造器与`OBJECT_AND_NON_CONCRETE`等价，是第二等级的，可以进行对象注入；
+- 2、exampleTwo开启了DefaultTyping，且被序列化的类里有一个Object类型，且接口类和抽象类都能被反序列化，是第三等级的，更可以进行对象注入；
 - 3、exampleThree虽然没有开启DefaultTyping，但是其被序列化的类被`JsonTypeInfo.Id.CLASS`修饰，可以通过`@class`进行对象注入；
 - 4、exampleThree虽然没有开启DefaultTyping，但是其被序列化的类被`JsonTypeInfo.Id.MINIMAL_CLASS`修饰，可以通过`@c`进行对象注入；
 
